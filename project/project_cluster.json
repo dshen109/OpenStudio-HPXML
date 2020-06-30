@@ -1,8 +1,8 @@
 {
   "cluster_name": "project",
   "connected": false,
-  "server_instance_type": "c3.4xlarge",
-  "worker_instance_type": "",
+  "server_instance_type": "c3.2xlarge",
+  "worker_instance_type": "c3.2xlarge",
   "user_id": "jrobert1",
   "worker_node_number": 0,
   "aws_tags": [],
