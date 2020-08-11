@@ -251,7 +251,9 @@ class HPXMLTest < MiniTest::Test
                    ['Baseboard Total Heating Energy', 'runperiod', '*'],
                    ['Boiler Heating Energy', 'runperiod', '*'],
                    ['Fluid Heat Exchanger Heat Transfer Energy', 'runperiod', '*'],
-                   ['Electric Equipment Electric Energy', 'runperiod', Constants.ObjectNameMechanicalVentilationHouseFanCFIS]]
+                   ['Electric Equipment Electric Energy', 'runperiod', Constants.ObjectNameMechanicalVentilationHouseFanCFIS],
+                   ['Boiler Part Load Ratio', 'runperiod', Constants.ObjectNameBoiler],
+                   ['Pump Electric Power', 'runperiod', Constants.ObjectNameBoiler + ' hydronic pump']]
 
     # Run workflow
     workflow_start = Time.now
@@ -854,8 +856,12 @@ class HPXMLTest < MiniTest::Test
       end
 
       if htg_sys_type == HPXML::HVACTypeBoiler
-        query = "SELECT Value FROM TabularDataWithStrings WHERE ReportName='EquipmentSummary' AND ReportForString='Entire Facility' AND TableName='Pumps' AND RowName LIKE '%#{Constants.ObjectNameBoiler.upcase}%' AND ColumnName='Electric Power' AND Units='W'"
-        sql_value = sqlFile.execAndReturnFirstDouble(query).get
+        # Calculate boiler pump power from timeseries output
+        query = "SELECT VariableValue FROM ReportVariableData WHERE ReportVariableDataDictionaryIndex IN (SELECT ReportVariableDataDictionaryIndex FROM ReportVariableDataDictionary WHERE VariableType='Avg' AND VariableName='Boiler Part Load Ratio' AND ReportingFrequency='Run Period')"
+        avg_plr = sqlFile.execAndReturnFirstDouble(query).get
+        query = "SELECT VariableValue FROM ReportVariableData WHERE ReportVariableDataDictionaryIndex IN (SELECT ReportVariableDataDictionaryIndex FROM ReportVariableDataDictionary WHERE VariableType='Avg' AND VariableName='Pump Electric Power' AND ReportingFrequency='Run Period')"
+        avg_w = sqlFile.execAndReturnFirstDouble(query).get
+        sql_value = avg_w / avg_plr
       elsif htg_sys_type == HPXML::HVACTypeFurnace
         # Ratio fan power based on heating airflow rate divided by fan airflow rate since the
         # fan is sized based on cooling.

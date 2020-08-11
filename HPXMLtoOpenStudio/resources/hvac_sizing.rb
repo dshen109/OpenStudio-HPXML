@@ -3153,9 +3153,10 @@ class HVACSizing
         ## Hot Water Boiler ##
 
         plant_loop = object.heatingCoil.plantLoop.get
+        water_cp = 4.186 # kJ/kg-C
 
         bb_UA = UnitConversions.convert(hvac_final_values.Heat_Capacity, 'Btu/hr', 'W') / UnitConversions.convert(hvac.BoilerDesignTemp - 10.0 - 95.0, 'R', 'K') * 3.0
-        bb_max_flow = UnitConversions.convert(hvac_final_values.Heat_Capacity, 'Btu/hr', 'W') / UnitConversions.convert(20.0, 'R', 'K') / 4.186 / 998.2 / 1000.0 * 2.0
+        bb_max_flow = UnitConversions.convert(hvac_final_values.Heat_Capacity, 'Btu/hr', 'W') / UnitConversions.convert(20.0, 'R', 'K') / water_cp / 998.2 / 1000.0 * 2.0
 
         # Baseboard Coil
         coil = object.heatingCoil.to_CoilHeatingWaterBaseboard.get
@@ -3171,10 +3172,16 @@ class HVACSizing
           end
 
           # Pump
-          if component.to_PumpVariableSpeed.is_initialized
-            pump = component.to_PumpVariableSpeed.get
-            pump.setRatedFlowRate(UnitConversions.convert(hvac_final_values.Heat_Capacity / 20.0 / 500.0, 'gal/min', 'm^3/s'))
-          end
+          next unless component.to_PumpVariableSpeed.is_initialized
+          pump = component.to_PumpVariableSpeed.get
+          # Size pump flow rate to match boiler capacity based on
+          # https://bigladdersoftware.com/epx/docs/9-3/engineering-reference/plant-condenser-loops.html#loop-demand-calculation-scheme-singlesetpoint
+          # This ensures the pump PLR matches the boiler PLR, resulting in correct pump power.
+          water_density = 988.7 # kg/m^3 at 120F
+          loop_delta_t = UnitConversions.convert(hvac.BoilerDesignTemp, 'F', 'C') - UnitConversions.convert(@hpxml.hvac_controls[0].heating_setpoint_temp, 'F', 'C') # delta-C
+          pump_mass_flow_rate = UnitConversions.convert(UnitConversions.convert(hvac_final_values.Heat_Capacity, 'Btu/hr', 'W') / (water_cp * loop_delta_t), 'J', 'kJ') # kg/s
+          pump_volumetric_flow_rate = pump_mass_flow_rate / water_density # m^3/s
+          pump.setRatedFlowRate(pump_volumetric_flow_rate)
         end
 
       elsif object.is_a? OpenStudio::Model::ZoneHVACBaseboardConvectiveElectric
