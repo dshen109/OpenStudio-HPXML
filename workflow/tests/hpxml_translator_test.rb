@@ -862,6 +862,13 @@ class HPXMLTest < MiniTest::Test
         query = "SELECT VariableValue FROM ReportVariableData WHERE ReportVariableDataDictionaryIndex IN (SELECT ReportVariableDataDictionaryIndex FROM ReportVariableDataDictionary WHERE VariableType='Avg' AND VariableName='Pump Electric Power' AND ReportingFrequency='Run Period')"
         avg_w = sqlFile.execAndReturnFirstDouble(query).get
         sql_value = avg_w / avg_plr
+        is_combi = (hpxml.water_heating_systems.select { |wh| [HPXML::WaterHeaterTypeCombiStorage, HPXML::WaterHeaterTypeCombiTankless].include? wh.water_heater_type }.size > 0)
+        if is_combi
+          # Can only check that the value is greater than nominal pump power due to hot water draws
+          assert_operator(sql_value, :>, hpxml_value)
+        else
+          assert_in_epsilon(sql_value, hpxml_value, 0.01)
+        end
       elsif htg_sys_type == HPXML::HVACTypeFurnace
         # Ratio fan power based on heating airflow rate divided by fan airflow rate since the
         # fan is sized based on cooling.
@@ -872,13 +879,14 @@ class HPXMLTest < MiniTest::Test
         sql_value_fan_airflow = sqlFile.execAndReturnFirstDouble(query_fan_airflow).get
         sql_value_htg_airflow = sqlFile.execAndReturnFirstDouble(query_htg_airflow).get
         sql_value *= sql_value_htg_airflow / sql_value_fan_airflow
+        assert_in_epsilon(hpxml_value, sql_value, 0.01)
       elsif (htg_sys_type == HPXML::HVACTypeStove) || (htg_sys_type == HPXML::HVACTypeWallFurnace) || (htg_sys_type == HPXML::HVACTypeFloorFurnace)
         query = "SELECT AVG(Value) FROM TabularDataWithStrings WHERE ReportName='EquipmentSummary' AND ReportForString='Entire Facility' AND TableName='Fans' AND RowName LIKE '%#{Constants.ObjectNameUnitHeater.upcase}%' AND ColumnName='Rated Electric Power' AND Units='W'"
         sql_value = sqlFile.execAndReturnFirstDouble(query).get
+        assert_in_epsilon(hpxml_value, sql_value, 0.01)
       else
         flunk "Unexpected heating system type '#{htg_sys_type}'."
       end
-      assert_in_epsilon(hpxml_value, sql_value, 0.01)
     end
 
     # HVAC Capacities
