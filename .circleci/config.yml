@@ -3,7 +3,7 @@ jobs:
   build:
     docker:
       - image: nrel/openstudio:3.0.1
-    resource_class: 2xlarge
+    resource_class: xlarge
     steps:
       - checkout
       - run: 
