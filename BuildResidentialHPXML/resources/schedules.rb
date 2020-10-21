@@ -406,7 +406,7 @@ class ScheduleGenerator
     # shape of all_simulated_values is [2, 35040, 7]
     (1..args[:geometry_num_occupants]).each do |i|
       if args[:schedules_occupant_types].is_initialized
-        occ_type_id = Integer(args[:schedules_occupant_types][i - 1])
+        occ_type_id = Integer(args[:schedules_occupant_types].get[i - 1])
         if occ_type_id >= schedule_config['occupancy_types_probability'].length
           @runner.registerError(
             "Occupant type of #{occ_type_id} does not exist in configuration."
